@@ -1,0 +1,40 @@
+name: Update links to permanent redirects
+on:
+    workflow_dispatch:
+    schedule:
+        - cron: "0 1 * * MON"
+
+jobs:
+    update-permanent-redirects:
+        runs-on: ubuntu-24.04
+        steps:
+            - name: Check out repository
+              uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+            - name: Get current date
+              id: date
+              run: |
+                  echo "value=$(date +'%Y-%m-%d')" >> "$GITHUB_OUTPUT"
+            - name: Build documentation and check links
+              run: |
+                  make linkcheck
+            - name: Update permanent redirects
+              run: |
+                  python3 scripts/update_redirects.py _build/output.json
+            - name: Verify updated links
+              run: |
+                  make linkcheck
+            - name: Create pull request
+              uses: canonical/create-pull-request@4b17638f76a975ad3e38eff088dff552b49e571e
+              with:
+                  github-token: ${{ secrets.GITHUB_TOKEN }}
+                  commit-message: "feat: update links to permanent redirects"
+                  branch-name: update-permanent-redirects-${{ steps.date.outputs.value }}
+                  title: Update links to permanent redirects (${{ steps.date.outputs.value }})
+                  body: |
+                      This updates documentation links that have permanent redirects (HTTP 301/308) to point
+                      directly to their new locations as of ${{ steps.date.outputs.value }}.
+
+                      You have to close and reopen the PR to trigger checks.
+                  repository: canonical/anbox-cloud-docs
+                  upsert: true
+                  ignore-no-changes: true
